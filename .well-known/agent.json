@@ -1,0 +1,58 @@
+{
+  "name": "KenyaA2A",
+  "description": "East African civic data agent \u2014 parliament, county budgets, drought status, and constitutional rights (EN/SW). First A2A agent serving East African public data.",
+  "url": "https://kenya-a2a.onrender.com/",
+  "version": "0.1.0",
+  "protocol_version": "0.3",
+  "capabilities": {
+    "streaming": false
+  },
+  "skills": [
+    {
+      "id": "budget_query",
+      "name": "County Budget Query",
+      "description": "COB absorption data for all 47 Kenya counties"
+    },
+    {
+      "id": "parliament_query",
+      "name": "Parliament Records",
+      "description": "MP records, bills, CDF \u2014 13th Parliament"
+    },
+    {
+      "id": "drought_status",
+      "name": "NDMA Drought Status",
+      "description": "Drought phase 1-5 for any county"
+    },
+    {
+      "id": "rights_query",
+      "name": "Constitutional Rights EN/SW",
+      "description": "Constitution of Kenya 2010 in English and Kiswahili"
+    }
+  ],
+  "default_input_modes": [
+    "text"
+  ],
+  "default_output_modes": [
+    "text"
+  ],
+  "author": {
+    "name": "Gabriel Mahia",
+    "email": "contact@aikungfu.dev",
+    "url": "https://gabrielmahia.github.io"
+  },
+  "related": [
+    {
+      "name": "mpesa-mcp",
+      "url": "https://pypi.org/project/mpesa-mcp/",
+      "description": "M-Pesa MCP server (3000+ downloads)"
+    },
+    {
+      "name": "kenya-rag",
+      "url": "https://github.com/gabrielmahia/kenya-rag"
+    },
+    {
+      "name": "hesabu-agent",
+      "url": "https://github.com/gabrielmahia/hesabu-agent"
+    }
+  ]
+}
