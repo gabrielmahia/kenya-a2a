@@ -2,7 +2,7 @@
 
 > The first [Agent-to-Agent (A2A) protocol](https://github.com/a2aproject/A2A) server for East African civic data. Any A2A-compatible AI agent — Claude, GPT, Gemini, or your own — can discover and query Kenya's parliament records, county budgets, drought status, and constitutional rights.
 
-[![License: CC BY-NC-ND 4.0](https://img.shields.io/badge/License-CC%20BY--NC--ND%204.0-lightgrey.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![A2A Protocol](https://img.shields.io/badge/A2A-Protocol%200.3-blue)](https://github.com/a2aproject/A2A)
 [![MCP Compatible](https://img.shields.io/badge/MCP-Compatible-green)](https://modelcontextprotocol.io)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://python.org)
@@ -106,6 +106,6 @@ Built on [Kenya Civic Datasets](https://kaggle.com/datasets/gmahia/kenya-civic-d
 ## IP & Collaboration
 
 © 2026 Gabriel Mahia · [contact@aikungfu.dev](mailto:contact@aikungfu.dev)
-License: CC BY-NC-ND 4.0
+License: MIT
 Protocol: A2A (Linux Foundation / Apache 2.0)
 Not affiliated with Parliament of Kenya, Controller of Budget, or NDMA.
