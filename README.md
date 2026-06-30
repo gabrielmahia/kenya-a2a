@@ -1,6 +1,6 @@
 # 🌍 KenyaA2A — East African Civic Agent (A2A)
 
-> The first [Agent-to-Agent (A2A) protocol](https://github.com/a2aproject/A2A) server for East African civic data. Any A2A-compatible AI agent — Claude, GPT, Gemini, or your own — can discover and query Kenya's parliament records, county budgets, drought status, and constitutional rights.
+> [Agent-to-Agent (A2A) protocol](https://github.com/a2aproject/A2A) server for East African civic data. Any A2A-compatible AI agent — Claude, GPT, Gemini, or your own — can discover and query Kenya's parliament records, county budgets, drought status, and constitutional rights.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![A2A Protocol](https://img.shields.io/badge/A2A-Protocol%200.3-blue)](https://github.com/a2aproject/A2A)
