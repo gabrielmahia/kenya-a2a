@@ -9,7 +9,7 @@
 
 ## Why A2A + Kenya
 
-The [A2A protocol](https://github.com/a2aproject/A2A) (Linux Foundation, Apache 2.0) is the emerging standard for agent-to-agent communication — complementing MCP (agent-to-tool). This is the first A2A implementation serving East African civic data, making Kenya's public information queryable by any AI agent in any framework.
+The [A2A protocol](https://github.com/a2aproject/A2A) (Linux Foundation, Apache 2.0) is the emerging standard for agent-to-agent communication — complementing MCP (agent-to-tool). It serves East African civic data over A2A, making Kenya's public information queryable by any AI agent in any framework.
 
 **A2A complements [mpesa-mcp](https://github.com/gabrielmahia/mpesa-mcp):**
 - `mpesa-mcp` = agent-to-tool (MCP) — gives agents M-Pesa and SMS tools
