@@ -16,4 +16,4 @@ jobs:
       - run: pip install -r requirements.txt
       - run: pip install ruff pytest
       - run: ruff check . --ignore E501
-      - run: pytest tests/ -v --tb=short
+      - run: python -m pytest tests/ -v --tb=short
