@@ -17,16 +17,16 @@ The [A2A protocol](https://github.com/a2aproject/A2A) (Linux Foundation, Apache 
 
 ## Agent Card
 
-The agent self-describes at `/.well-known/agent.json`:
+The agent describes itself at `/.well-known/agent-card.json` (the pre-0.3 path `/.well-known/agent.json` is still served by a2a-sdk 0.3.x but is deprecated). The complete card is in `.well-known/agent-card.json`; it is **generated from the code** by `scripts/export_card.py` and a test fails if the two drift. Abbreviated:
 
 ```json
 {
   "name": "KenyaA2A",
-  "description": "East African civic data agent — parliament, budgets, drought, rights",
-  "url": "https://kenya-a2a.onrender.com",
+  "protocolVersion": "0.3.0",
+  "url": "http://localhost:8000/",
   "version": "0.1.0",
   "skills": [
-    {"id": "budget_query", "name": "County Budget Query"},
+    {"id": "budget_query", "name": "County Budget Query", "tags": ["budget", "counties", "public-finance", "kenya"]},
     {"id": "parliament_query", "name": "Parliament Records Query"},
     {"id": "drought_status", "name": "NDMA Drought Status"},
     {"id": "rights_query", "name": "Constitutional Rights (EN/SW)"}
@@ -34,18 +34,21 @@ The agent self-describes at `/.well-known/agent.json`:
 }
 ```
 
+## Status
+
+Runs locally with `a2a-sdk>=0.3.26,<1.0`. **No public instance is deployed** (an earlier hosted instance no longer exists). `a2a-sdk` 1.x is not supported yet: it removed `a2a.server.apps` and made `AgentCard` a protobuf type. Tests cover the Agent Card and its serving only; the skills' query execution against real data is not yet tested.
+
 ## Quickstart
 
 ```bash
-pip install kenya-a2a
-# or from source:
+# from source (the package is not published to PyPI):
 git clone https://github.com/gabrielmahia/kenya-a2a
 cd kenya-a2a
 pip install -r requirements.txt
 uvicorn server:app --host 0.0.0.0 --port 8000
 ```
 
-**Agent card:** `GET http://localhost:8000/.well-known/agent.json`
+**Agent card:** `GET http://localhost:8000/.well-known/agent-card.json`
 
 **Send a task:**
 ```bash
