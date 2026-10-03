@@ -3,7 +3,7 @@
 > [Agent-to-Agent (A2A) protocol](https://github.com/a2aproject/A2A) server for East African civic data. Any A2A-compatible AI agent — Claude, GPT, Gemini, or your own — can discover and query Kenya's parliament records, county budgets, drought status, and constitutional rights.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![A2A Protocol](https://img.shields.io/badge/A2A-Protocol%200.3-blue)](https://github.com/a2aproject/A2A)
+[![A2A Protocol](https://img.shields.io/badge/A2A-Protocol%201.0-blue)](https://github.com/a2aproject/A2A)
 [![MCP Compatible](https://img.shields.io/badge/MCP-Compatible-green)](https://modelcontextprotocol.io)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://python.org)
 
@@ -17,26 +17,71 @@ The [A2A protocol](https://github.com/a2aproject/A2A) (Linux Foundation, Apache 
 
 ## Agent Card
 
-The agent describes itself at `/.well-known/agent-card.json` (the pre-0.3 path `/.well-known/agent.json` is still served by a2a-sdk 0.3.x but is deprecated). The complete card is in `.well-known/agent-card.json`; it is **generated from the code** by `scripts/export_card.py` and a test fails if the two drift. Abbreviated:
+The agent describes itself at `/.well-known/agent-card.json` (A2A 1.0). The complete card is in `.well-known/agent-card.json`; it is **generated from the code** by `scripts/export_card.py`, and a test fails if the two drift. Abbreviated:
 
 ```json
 {
   "name": "KenyaA2A",
-  "protocolVersion": "0.3.0",
-  "url": "http://localhost:8000/",
   "version": "0.1.0",
+  "supportedInterfaces": [
+    {
+      "protocolBinding": "JSONRPC",
+      "protocolVersion": "1.0",
+      "url": "http://localhost:8000/"
+    }
+  ],
   "skills": [
-    {"id": "budget_query", "name": "County Budget Query", "tags": ["budget", "counties", "public-finance", "kenya"]},
-    {"id": "parliament_query", "name": "Parliament Records Query"},
-    {"id": "drought_status", "name": "Drought Status (DEMO, synthetic)"},
-    {"id": "rights_query", "name": "Constitutional Rights (EN/SW)"}
+    {
+      "id": "budget_query",
+      "name": "County Budget Query",
+      "tags": [
+        "budget",
+        "counties",
+        "public-finance",
+        "kenya"
+      ]
+    },
+    {
+      "id": "parliament_query",
+      "name": "Parliament Records Query",
+      "tags": [
+        "parliament",
+        "bills",
+        "mps",
+        "kenya"
+      ]
+    },
+    {
+      "id": "drought_status",
+      "name": "Drought Status (DEMO, synthetic)",
+      "tags": [
+        "drought",
+        "ndma",
+        "climate",
+        "kenya"
+      ]
+    },
+    {
+      "id": "rights_query",
+      "name": "Constitutional Rights (EN/SW)",
+      "tags": [
+        "constitution",
+        "rights",
+        "kiswahili",
+        "kenya"
+      ]
+    }
   ]
 }
 ```
 
 ## Status
 
-Runs locally with `a2a-sdk>=0.3.26,<1.0`. **No public instance is deployed** (an earlier hosted instance no longer exists). `a2a-sdk` 1.x is not supported yet: it removed `a2a.server.apps` and made `AgentCard` a protobuf type. **What works end to end over A2A** (`message/send`, covered by a test): the constitutional-rights skill (a small set of articles, English and Kiswahili). **Budget and parliament** need data files (`civic_data/`) that are not in this repository; they say so plainly instead of returning anything. **Drought returns synthetic demo values derived from the county name, not NDMA data**, and is labelled as such in the card and in every answer. Before 2026-10-03 no query could be answered at all: the response wrapper built an invalid message, which no test had ever exercised.
+Runs locally on `a2a-sdk>=1.0,<2.0` (A2A protocol 1.0, JSON-RPC). **No public instance is deployed** (an earlier hosted instance no longer exists).
+
+- **Official compatibility kit** (`a2a-tck`, JSON-RPC): MUST 54 passed / 5 failed, SHOULD 4 / 0, MAY 2 / 1. The 5 MUST failures appear to be the TCK's own scripted fixture behaviour; details, command and limits in [`docs/TCK.md`](docs/TCK.md).
+- **What works end to end** (tested through the SDK's own client): the constitutional-rights skill (a small set of articles, English and Kiswahili). **Budget and parliament** need data files (`civic_data/`) that are not in this repository; they say so plainly instead of returning anything. **Drought returns synthetic demo values derived from the county name, not NDMA data**, and is labelled as such in the card and in every answer.
+- **Not covered:** streaming, push notifications, task lifecycle, authentication or authorization (the card declares none), REST and gRPC transports.
 
 ## Quickstart
 
