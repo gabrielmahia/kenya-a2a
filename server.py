@@ -3,6 +3,7 @@ KenyaA2A — A2A-compliant server for East African civic data.
 Built on the official a2a-sdk (Linux Foundation / Apache 2.0).
 """
 import os
+import re
 from pathlib import Path
 
 import pandas as pd
@@ -15,7 +16,6 @@ from a2a.types import (
     AgentCapabilities,
     AgentCard,
     AgentSkill,
-    TextPart,
 )
 from dotenv import load_dotenv
 
@@ -51,15 +51,52 @@ RIGHTS_SW = {
 }
 
 
-def query_budget(county: str) -> str:
+# ── Routing ──────────────────────────────────────────────────────────────────
+# Whole-word matching (the old substring matching sent "important" to the parliament skill and "answer" to Kiswahili) and
+# specific topics before the generic word "county" (the old order sent "drought status in Turkana County" to the budget skill).
+def _words(*ws: str) -> "re.Pattern[str]":
+    return re.compile(r"\b(?:" + "|".join(re.escape(w) for w in ws) + r")\b", re.IGNORECASE)
+
+
+_ROUTES = (
+    ("drought", _words("drought", "ndma", "water stress", "rainfall", "wapimaji")),
+    ("budget", _words("budget", "absorption", "development fund", "cob")),
+    ("parliament", _words("mp", "mps", "parliament", "bill", "bills", "cdf", "constituency", "vote")),
+    ("rights", _words("right", "rights", "haki", "constitution", "katiba", "article", "kifungu")),
+    ("budget", _words("county", "counties")),
+)
+_SWAHILI = _words("kiswahili", "swahili", "katiba", "sw")
+_TOPICS = ("land", "ardhi", "education", "elimu", "water", "maji", "health", "afya", "labour", "kazi", "assembly")
+
+
+def route(message: str) -> str:
+    """Return the skill name for a message: drought, budget, parliament, rights, or help."""
+    for name, pattern in _ROUTES:
+        if pattern.search(message):
+            return name
+    return "help"
+
+
+def find_county(message: str) -> str:
+    """First county named in the message (longest names first), defaulting to Nairobi."""
+    for c in sorted(COUNTIES, key=len, reverse=True):
+        if re.search(r"(?<!\w)" + re.escape(c) + r"(?!\w)", message, re.IGNORECASE):
+            return c
+    return "Nairobi"
+
+
+def find_topic(message: str) -> str:
+    for topic in _TOPICS:
+        if _words(topic).search(message):
+            return topic
+    return "land"
+
+
+def query_budget(county: str) -> str | None:
     """Query COB budget data for a county."""
     fpath = DATA_DIR / "county_budgets_fy2223.csv"
     if not fpath.exists():
-        return (
-            f"Budget data for {county} not available locally. "
-            "Source: Controller of Budget Kenya (cob.go.ke). "
-            "DOI: 10.34740/kaggle/dsv/15473045"
-        )
+        return None  # the civic_data/ directory is not part of this repository
     df = pd.read_csv(fpath)
     county_clean = county.strip().title()
     matches = df[df.apply(
@@ -70,10 +107,13 @@ def query_budget(county: str) -> str:
     return matches.to_string(index=False)
 
 
-def query_parliament(query: str) -> str:
+def query_parliament(query: str) -> str | None:
     """Query MP and bills data."""
     results = []
-    for fname in ["mps_seed.csv", "bills_seed.csv", "cdf_seed.csv"]:
+    present = [f for f in ["mps_seed.csv", "bills_seed.csv", "cdf_seed.csv"] if (DATA_DIR / f).exists()]
+    if not present:
+        return None  # the civic_data/ directory is not part of this repository
+    for fname in present:
         fpath = DATA_DIR / fname
         if fpath.exists():
             df = pd.read_csv(fpath)
@@ -84,7 +124,7 @@ def query_parliament(query: str) -> str:
             )]
             if not matches.empty:
                 results.append(f"From {fname}:\n{matches.head(5).to_string(index=False)}")
-    return "\n\n".join(results) if results else "No parliamentary records found."
+    return "\n\n".join(results) if results else "No parliamentary records matched your query."
 
 
 def get_drought_status(county: str) -> dict:
@@ -100,7 +140,8 @@ def get_drought_status(county: str) -> dict:
         "phase": h,
         "phase_label": phases[h],
         "rainfall_deficit_pct": round((h - 1) * 15 + 5, 1),
-        "source": "NDMA Kenya (sandbox)",
+        "source": "SYNTHETIC DEMO: derived from the county name; NOT NDMA data",
+        "is_synthetic": True,
     }
 
 
@@ -129,71 +170,63 @@ class KenyaCivicAgentExecutor(AgentExecutor):
             )
             return
 
-        msg_lower = user_message.lower()
+        skill = route(user_message)
 
-        # Route to skill
-        if any(w in msg_lower for w in ["budget", "county", "absorption", "development fund", "cob"]):
-            # Extract county if mentioned
-            county = "Nairobi"
-            for c in COUNTIES:
-                if c.lower() in msg_lower:
-                    county = c
-                    break
+        if skill == "budget":
+            county = find_county(user_message)
             result = query_budget(county)
-            response = f"**County Budget Data — {county}**\n\n{result}\n\nSource: Controller of Budget (cob.go.ke)"
+            if result is None:
+                response = (
+                    "Budget data is not included in this deployment (the civic_data/ directory is absent), "
+                    "so no figures can be returned."
+                )
+            else:
+                response = f"**County Budget Data — {county}**\n\n{result}\n\nSource: Controller of Budget (cob.go.ke)"
 
-        elif any(w in msg_lower for w in ["mp", "parliament", "bill", "cdf", "constituency", "vote"]):
+        elif skill == "parliament":
             result = query_parliament(user_message)
-            response = f"**Parliamentary Records**\n\n{result}\n\nSource: Parliament of Kenya / Mzalendo"
+            if result is None:
+                response = (
+                    "Parliament data is not included in this deployment (the civic_data/ directory is absent), "
+                    "so no records can be returned."
+                )
+            else:
+                response = f"**Parliamentary Records**\n\n{result}\n\nSource: Parliament of Kenya / Mzalendo"
 
-        elif any(w in msg_lower for w in ["drought", "ndma", "water stress", "rainfall", "wapimaji"]):
-            county = "Nairobi"
-            for c in COUNTIES:
-                if c.lower() in msg_lower:
-                    county = c
-                    break
-            data = get_drought_status(county)
+        elif skill == "drought":
+            data = get_drought_status(find_county(user_message))
             if "error" in data:
                 response = data["error"]
             else:
                 response = (
+                    "**DEMO: synthetic values, not NDMA data. Do not use for decisions.**\n"
                     f"**Drought Status — {data['county']}**\n"
                     f"Phase: {data['phase']} ({data['phase_label']})\n"
                     f"Rainfall deficit: {data['rainfall_deficit_pct']}%\n"
                     f"Source: {data['source']}"
                 )
 
-        elif any(w in msg_lower for w in ["right", "haki", "constitution", "katiba", "article", "kifungu"]):
-            lang = "sw" if any(w in msg_lower for w in ["kiswahili", "swahili", "sw", "katiba"]) else "en"
-            topic = "land"
-            for t in ["land", "ardhi", "education", "elimu", "water", "maji", "health", "afya", "labour", "kazi", "assembly"]:
-                if t in msg_lower:
-                    topic = t
-                    break
-            response = get_rights(topic, lang)
+        elif skill == "rights":
+            lang = "sw" if _SWAHILI.search(user_message) else "en"
+            response = get_rights(find_topic(user_message), lang)
 
         else:
             response = (
-                "**KenyaA2A — East African Civic Data Agent**\n\n"
-                "I can answer questions about:\n"
-                "- 🏛 **County budgets** — absorption rates, development spend (47 counties)\n"
-                "- 📋 **Parliament** — MP records, bills, CDF utilisation\n"
-                "- 💧 **Drought** — NDMA drought phases for any county\n"
-                "- ⚖️ **Rights** — Constitution of Kenya 2010 in English and Kiswahili\n\n"
-                "Example: \'What is the drought status in Turkana County?\'"
+                "**KenyaA2A — East African Civic Data Agent (demo)**\n\n"
+                "Working: ⚖️ **Rights** — Constitution of Kenya 2010 in English and Kiswahili (a small set of articles).\n"
+                "Needs data files that are not included in this deployment: 🏛 County budgets, 📋 Parliament.\n"
+                "Synthetic demo output, not real data: 💧 Drought.\n\n"
+                "Example: \'What does the constitution say about land rights?\'"
             )
 
         await event_queue.enqueue_event(self._text_response(response))
 
     def _text_response(self, text: str):
-        from a2a.types import Artifact, TaskArtifactUpdateEvent
-        return TaskArtifactUpdateEvent(
-            artifact=Artifact(
-                parts=[TextPart(text=text)],
-                index=0,
-                append=False,
-            )
-        )
+        # The previous version built an Artifact without the required artifactId (and with fields that do not exist),
+        # so no query could ever be answered. A plain agent message is the SDK's supported reply for a simple skill.
+        from a2a.utils import new_agent_text_message
+
+        return new_agent_text_message(text)
 
     async def cancel(self, context: RequestContext, event_queue) -> None:
         raise NotImplementedError("Cancel not supported")
@@ -203,22 +236,23 @@ def build_agent_card(host: str = "http://localhost:8000") -> AgentCard:
     return AgentCard(
         name="KenyaA2A",
         description=(
-            "East African civic data agent — query Kenya parliament records, "
-            "county budget execution, NDMA drought status, and constitutional rights "
-            "in English and Kiswahili."
+            "East African civic data agent (demo). Working: constitutional rights lookup in English "
+            "and Kiswahili (a small set of articles). County budget and parliament queries need data "
+            "files that are not included in this deployment. Drought status returns synthetic demo "
+            "values, not NDMA data."
         ),
         url=f"{host}/",
         version="0.1.0",
         capabilities=AgentCapabilities(streaming=False),
         skills=[
             AgentSkill(id="budget_query", name="County Budget Query",
-                       description="Query Controller of Budget county development fund absorption for all 47 Kenya counties",
+                       description="Query Controller of Budget county development fund absorption. Needs data files that are not included in this deployment.",
                        tags=["budget", "counties", "public-finance", "kenya"]),
             AgentSkill(id="parliament_query", name="Parliament Records Query",
-                       description="Query MP records, parliamentary bills, and CDF utilisation from Kenya\'s 13th Parliament",
+                       description="Query MP records, parliamentary bills and CDF utilisation. Needs data files that are not included in this deployment.",
                        tags=["parliament", "bills", "mps", "kenya"]),
-            AgentSkill(id="drought_status", name="NDMA Drought Status",
-                       description="Get current NDMA drought phase classification for any Kenya county (1=Minimal to 5=Famine)",
+            AgentSkill(id="drought_status", name="Drought Status (DEMO, synthetic)",
+                       description="DEMO: returns synthetic values derived from the county name, not NDMA data. Do not use for decisions.",
                        tags=["drought", "ndma", "climate", "kenya"]),
             AgentSkill(id="rights_query", name="Constitutional Rights (EN/SW)",
                        description="Query the Constitution of Kenya 2010 in English or Kiswahili",
