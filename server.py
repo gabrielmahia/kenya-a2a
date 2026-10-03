@@ -8,16 +8,19 @@ from pathlib import Path
 
 import pandas as pd
 import uvicorn
+from a2a.helpers import new_text_message
 from a2a.server.agent_execution import AgentExecutor, RequestContext
-from a2a.server.apps import A2AFastAPIApplication
 from a2a.server.request_handlers import DefaultRequestHandler
+from a2a.server.routes import create_agent_card_routes, create_jsonrpc_routes
 from a2a.server.tasks import InMemoryTaskStore
 from a2a.types import (
     AgentCapabilities,
     AgentCard,
+    AgentInterface,
     AgentSkill,
 )
 from dotenv import load_dotenv
+from starlette.applications import Starlette
 
 load_dotenv()
 
@@ -166,7 +169,7 @@ class KenyaCivicAgentExecutor(AgentExecutor):
         user_message = context.get_user_input()
         if not user_message:
             await event_queue.enqueue_event(
-                self._text_response("Please send a question about Kenya civic data.")
+                self._text_response("Please send a question about Kenya civic data.", context)
             )
             return
 
@@ -219,14 +222,12 @@ class KenyaCivicAgentExecutor(AgentExecutor):
                 "Example: \'What does the constitution say about land rights?\'"
             )
 
-        await event_queue.enqueue_event(self._text_response(response))
+        await event_queue.enqueue_event(self._text_response(response, context))
 
-    def _text_response(self, text: str):
-        # The previous version built an Artifact without the required artifactId (and with fields that do not exist),
-        # so no query could ever be answered. A plain agent message is the SDK's supported reply for a simple skill.
-        from a2a.utils import new_agent_text_message
-
-        return new_agent_text_message(text)
+    def _text_response(self, text: str, context: RequestContext):
+        # A plain agent message is the SDK's supported reply for a simple, single-turn skill. It must carry the
+        # (possibly server-generated) contextId: the official TCK requirement CORE-MULTI-001a failed without it.
+        return new_text_message(text, context_id=context.context_id)
 
     async def cancel(self, context: RequestContext, event_queue) -> None:
         raise NotImplementedError("Cancel not supported")
@@ -241,7 +242,7 @@ def build_agent_card(host: str = "http://localhost:8000") -> AgentCard:
             "files that are not included in this deployment. Drought status returns synthetic demo "
             "values, not NDMA data."
         ),
-        url=f"{host}/",
+        supported_interfaces=[AgentInterface(protocol_binding="JSONRPC", url=f"{host}/", protocol_version="1.0")],
         version="0.1.0",
         capabilities=AgentCapabilities(streaming=False),
         skills=[
@@ -264,14 +265,11 @@ def build_agent_card(host: str = "http://localhost:8000") -> AgentCard:
 
 
 def create_app(host: str = "http://localhost:8000"):
-    agent_card    = build_agent_card(host)
-    executor      = KenyaCivicAgentExecutor()
-    task_store    = InMemoryTaskStore()
-    request_handler = DefaultRequestHandler(agent_executor=executor, task_store=task_store)
-    return A2AFastAPIApplication(
-        agent_card=agent_card,
-        http_handler=request_handler,
-    ).build()
+    card = build_agent_card(host)
+    handler = DefaultRequestHandler(agent_executor=KenyaCivicAgentExecutor(), task_store=InMemoryTaskStore(), agent_card=card)
+    # Cache-Control on the card: the official TCK's SHOULD-level agent-card caching requirement.
+    routes = [*create_agent_card_routes(card, cache_control="public, max-age=3600"), *create_jsonrpc_routes(handler, "/")]
+    return Starlette(routes=routes)
 
 
 app = create_app(os.getenv("A2A_HOST_URL", "http://localhost:8000"))

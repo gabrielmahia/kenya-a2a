@@ -1,6 +1,6 @@
-"""Agent Card tests. Added because CI had never run a test for this repository (there was no tests/ directory), and the
-server could not import on any allowed SDK: an unused import of a name that does not exist, plus skills missing the
-schema-required `tags`. These tests need no network and no API key."""
+"""Agent Card and behaviour tests for the A2A 1.0 port. No network and no API key: the server is driven in memory with the SDK's own
+client over an ASGI transport, so every behaviour test is a real protocol round trip."""
+import asyncio
 import importlib.metadata
 import json
 import os
@@ -13,9 +13,33 @@ os.environ.setdefault("ANTHROPIC_API_KEY", "unused")
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 
 
+def _ask(message: str, data_dir=None) -> str:
+    """Send one message through the SDK client to the in-memory server; return the response as JSON text."""
+    import httpx
+    from a2a.client import ClientConfig, create_client
+    from a2a.helpers import new_text_message
+    from a2a.types import Role, SendMessageRequest
+    from google.protobuf.json_format import MessageToDict
+
+    import server
+
+    if data_dir is not None:
+        server.DATA_DIR = data_dir
+
+    async def go():
+        app = server.create_app()
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://localhost:8000") as http:
+            client = await create_client(agent=server.build_agent_card(), client_config=ClientConfig(streaming=False, httpx_client=http))
+            request = SendMessageRequest(message=new_text_message(message, role=Role.ROLE_USER))
+            return [MessageToDict(chunk) async for chunk in client.send_message(request)]
+
+    # A broken reply must FAIL the test, not hang it (an invalid event once left the client waiting forever).
+    return json.dumps(asyncio.run(asyncio.wait_for(go(), timeout=10)))
+
+
 def test_supported_sdk_range():
     major = int(importlib.metadata.version("a2a-sdk").split(".")[0])
-    assert major < 1, "kenya-a2a supports a2a-sdk >=0.3.26,<1.0 (see requirements.txt); 1.x removed a2a.server.apps and made AgentCard a protobuf type"
+    assert major == 1, "kenya-a2a targets a2a-sdk >=1.0,<2.0 (A2A protocol 1.0); see requirements.txt"
 
 
 def test_card_builds_and_every_skill_has_tags():
@@ -23,34 +47,33 @@ def test_card_builds_and_every_skill_has_tags():
 
     card = server.build_agent_card()
     assert card.name == "KenyaA2A" and card.skills
-    assert all(s.tags for s in card.skills), "A2A requires non-empty tags on every skill"
+    assert all(list(s.tags) for s in card.skills), "A2A requires non-empty tags on every skill"
 
 
-def test_runtime_card_is_served_at_the_current_well_known_path_and_validates():
+def test_card_declares_a_1_0_jsonrpc_interface():
+    import server
+
+    ifaces = list(server.build_agent_card().supported_interfaces)
+    assert [(i.protocol_binding, i.protocol_version) for i in ifaces] == [("JSONRPC", "1.0")]
+
+
+def test_runtime_card_is_served_at_the_well_known_path_and_parses_strictly():
     from a2a.types import AgentCard
+    from google.protobuf.json_format import ParseDict
     from starlette.testclient import TestClient
 
     import server
 
     r = TestClient(server.create_app()).get("/.well-known/agent-card.json")
     assert r.status_code == 200
-    card = AgentCard.model_validate(r.json())
-    assert card.protocol_version.startswith("0.3")
+    card = ParseDict(r.json(), AgentCard())          # raises on unknown or malformed fields
+    assert card.name == "KenyaA2A"
 
 
-def test_deprecated_path_is_still_served_by_the_sdk():
-    from starlette.testclient import TestClient
-
-    import server
-
-    assert TestClient(server.create_app()).get("/.well-known/agent.json").status_code == 200
-
-
-@pytest.mark.parametrize("name", ["agent-card.json", "agent.json"])
-def test_static_cards_match_the_code(name):
+def test_static_card_matches_the_code():
     from scripts.export_card import render
 
-    assert (ROOT / ".well-known" / name).read_text() == render(), "run: python scripts/export_card.py"
+    assert (ROOT / ".well-known" / "agent-card.json").read_text() == render(), "run: python scripts/export_card.py"
 
 
 def test_descriptions_make_no_superlative_claims():
@@ -61,38 +84,13 @@ def test_descriptions_make_no_superlative_claims():
     assert not [t for t in texts if re.search(r"\b(first|only|best|leading|unique|pioneer)", t, re.IGNORECASE)], "describe what it does, not what it was first to do"
 
 
-# ── behaviour added after an independent review found the card over-claimed ───────────────────────────────────────────
-import asyncio
-
-
-def _ask(message: str, data_dir=None) -> str:
-    """Run the real executor on one message (no network) and return the response text."""
-    import server
-
-    events: list = []
-
-    class Ctx:
-        def get_user_input(self):
-            return message
-
-    class Queue:
-        async def enqueue_event(self, e):
-            events.append(e)
-
-    if data_dir is not None:
-        server.DATA_DIR = data_dir
-    asyncio.run(server.KenyaCivicAgentExecutor().execute(Ctx(), Queue()))
-    part = events[0].parts[0]
-    return getattr(part, "root", part).text
-
-
 @pytest.mark.parametrize("message,skill", [
-    ("What is the drought status in Turkana County?", "drought"),   # the repo's own example; the old order sent it to budget
+    ("What is the drought status in Turkana County?", "drought"),
     ("budget absorption in Nakuru County", "budget"),
     ("county development fund", "budget"),
     ("Tell me about MPs and bills", "parliament"),
     ("What does the constitution say about land rights?", "rights"),
-    ("this is an important simple temperature question", "help"),     # 'mp' inside words must not route to parliament
+    ("this is an important simple temperature question", "help"),
     ("hello", "help"),
 ])
 def test_routing_prefers_specific_skills_and_matches_whole_words(message, skill):
@@ -101,12 +99,15 @@ def test_routing_prefers_specific_skills_and_matches_whole_words(message, skill)
     assert server.route(message) == skill
 
 
+def test_end_to_end_the_rights_skill_answers_over_the_protocol():
+    assert "Article 40" in _ask("What does the constitution say about land rights?")
+
+
 def test_swahili_is_chosen_only_by_whole_words():
-    # 'land' exists in BOTH languages, so a wrong language choice changes the answer's header (a topic missing from the Swahili
-    # table would return a not-found message that hides the mistake: the first version of this test could not fail).
-    assert "[English" in _ask("please answer: what is the right to land?")        # 'sw' inside 'answer' must not switch language
+    # 'land' exists in BOTH languages, so a wrong language choice changes the visible header.
+    assert "[English" in _ask("please answer: what is the right to land?")
     assert "[Kiswahili" in _ask("haki ya land kwa Kiswahili")
-    assert "[Kiswahili" in _ask("land rights in sw")                              # 'sw' as a whole word does select Swahili
+    assert "[Kiswahili" in _ask("land rights in sw")
 
 
 def test_drought_output_is_labelled_synthetic_everywhere():
@@ -139,16 +140,18 @@ def test_card_discloses_demo_and_missing_data():
     assert "NDMA drought status" not in card.description and "demo" in card.description.lower()
 
 
-def test_end_to_end_message_send_over_jsonrpc_returns_the_answer():
-    """The real protocol round trip (message/send), not a unit call: this is what a verifier or registry would exercise."""
+def test_every_reply_carries_a_context_id():
+    # Official TCK requirement CORE-MULTI-001a: a generated contextId must be included in the response.
+    out = json.loads(_ask("What does the constitution say about land rights?"))
+    message = out[0].get("message") or out[0]
+    assert message.get("contextId"), out
+
+
+def test_agent_card_is_served_with_a_cache_control_max_age():
+    # Official TCK SHOULD-level requirement (agent-card caching): Cache-Control present, with max-age.
     from starlette.testclient import TestClient
 
     import server
 
-    req = {"jsonrpc": "2.0", "id": "1", "method": "message/send", "params": {"message": {
-        "role": "user", "messageId": "m-1", "parts": [{"kind": "text", "text": "What does the constitution say about land rights?"}]}}}
-    r = TestClient(server.create_app()).post("/", json=req)
-    assert r.status_code == 200
-    body = r.json()
-    assert "error" not in body, body
-    assert "Article 40" in json.dumps(body["result"])
+    header = TestClient(server.create_app()).get("/.well-known/agent-card.json").headers.get("cache-control", "")
+    assert "max-age=" in header, header

@@ -10,8 +10,6 @@
   ],
   "description": "East African civic data agent (demo). Working: constitutional rights lookup in English and Kiswahili (a small set of articles). County budget and parliament queries need data files that are not included in this deployment. Drought status returns synthetic demo values, not NDMA data.",
   "name": "KenyaA2A",
-  "preferredTransport": "JSONRPC",
-  "protocolVersion": "0.3.0",
   "skills": [
     {
       "description": "Query Controller of Budget county development fund absorption. Needs data files that are not included in this deployment.",
@@ -58,6 +56,12 @@
       ]
     }
   ],
-  "url": "http://localhost:8000/",
+  "supportedInterfaces": [
+    {
+      "protocolBinding": "JSONRPC",
+      "protocolVersion": "1.0",
+      "url": "http://localhost:8000/"
+    }
+  ],
   "version": "0.1.0"
 }
