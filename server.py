@@ -3,22 +3,21 @@ KenyaA2A — A2A-compliant server for East African civic data.
 Built on the official a2a-sdk (Linux Foundation / Apache 2.0).
 """
 import os
-import json
-import asyncio
-import pandas as pd
 from pathlib import Path
-from dotenv import load_dotenv
-import uvicorn
 
+import pandas as pd
+import uvicorn
 from a2a.server.agent_execution import AgentExecutor, RequestContext
 from a2a.server.apps import A2AFastAPIApplication
 from a2a.server.request_handlers import DefaultRequestHandler
 from a2a.server.tasks import InMemoryTaskStore
 from a2a.types import (
-    AgentCapabilities, AgentCard, AgentSkill,
-    Message, Part, TaskState, TextPart, Role,
+    AgentCapabilities,
+    AgentCard,
+    AgentSkill,
+    TextPart,
 )
-from a2a.utils import new_agent_id
+from dotenv import load_dotenv
 
 load_dotenv()
 
@@ -187,7 +186,7 @@ class KenyaCivicAgentExecutor(AgentExecutor):
         await event_queue.enqueue_event(self._text_response(response))
 
     def _text_response(self, text: str):
-        from a2a.types import TaskArtifactUpdateEvent, Artifact, TextPart
+        from a2a.types import Artifact, TaskArtifactUpdateEvent
         return TaskArtifactUpdateEvent(
             artifact=Artifact(
                 parts=[TextPart(text=text)],
@@ -206,23 +205,27 @@ def build_agent_card(host: str = "http://localhost:8000") -> AgentCard:
         description=(
             "East African civic data agent — query Kenya parliament records, "
             "county budget execution, NDMA drought status, and constitutional rights "
-            "in English and Kiswahili. The first A2A agent serving East African public data."
+            "in English and Kiswahili."
         ),
         url=f"{host}/",
         version="0.1.0",
         capabilities=AgentCapabilities(streaming=False),
         skills=[
             AgentSkill(id="budget_query", name="County Budget Query",
-                       description="Query Controller of Budget county development fund absorption for all 47 Kenya counties"),
+                       description="Query Controller of Budget county development fund absorption for all 47 Kenya counties",
+                       tags=["budget", "counties", "public-finance", "kenya"]),
             AgentSkill(id="parliament_query", name="Parliament Records Query",
-                       description="Query MP records, parliamentary bills, and CDF utilisation from Kenya\'s 13th Parliament"),
+                       description="Query MP records, parliamentary bills, and CDF utilisation from Kenya\'s 13th Parliament",
+                       tags=["parliament", "bills", "mps", "kenya"]),
             AgentSkill(id="drought_status", name="NDMA Drought Status",
-                       description="Get current NDMA drought phase classification for any Kenya county (1=Minimal to 5=Famine)"),
+                       description="Get current NDMA drought phase classification for any Kenya county (1=Minimal to 5=Famine)",
+                       tags=["drought", "ndma", "climate", "kenya"]),
             AgentSkill(id="rights_query", name="Constitutional Rights (EN/SW)",
-                       description="Query the Constitution of Kenya 2010 in English or Kiswahili"),
+                       description="Query the Constitution of Kenya 2010 in English or Kiswahili",
+                       tags=["constitution", "rights", "kiswahili", "kenya"]),
         ],
-        default_input_modes=["text"],
-        default_output_modes=["text"],
+        default_input_modes=["text/plain"],
+        default_output_modes=["text/plain"],
     )
 
 
