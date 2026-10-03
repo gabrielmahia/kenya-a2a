@@ -28,7 +28,7 @@ The agent describes itself at `/.well-known/agent-card.json` (the pre-0.3 path `
   "skills": [
     {"id": "budget_query", "name": "County Budget Query", "tags": ["budget", "counties", "public-finance", "kenya"]},
     {"id": "parliament_query", "name": "Parliament Records Query"},
-    {"id": "drought_status", "name": "NDMA Drought Status"},
+    {"id": "drought_status", "name": "Drought Status (DEMO, synthetic)"},
     {"id": "rights_query", "name": "Constitutional Rights (EN/SW)"}
   ]
 }
@@ -36,7 +36,7 @@ The agent describes itself at `/.well-known/agent-card.json` (the pre-0.3 path `
 
 ## Status
 
-Runs locally with `a2a-sdk>=0.3.26,<1.0`. **No public instance is deployed** (an earlier hosted instance no longer exists). `a2a-sdk` 1.x is not supported yet: it removed `a2a.server.apps` and made `AgentCard` a protobuf type. Tests cover the Agent Card and its serving only; the skills' query execution against real data is not yet tested.
+Runs locally with `a2a-sdk>=0.3.26,<1.0`. **No public instance is deployed** (an earlier hosted instance no longer exists). `a2a-sdk` 1.x is not supported yet: it removed `a2a.server.apps` and made `AgentCard` a protobuf type. **What works end to end over A2A** (`message/send`, covered by a test): the constitutional-rights skill (a small set of articles, English and Kiswahili). **Budget and parliament** need data files (`civic_data/`) that are not in this repository; they say so plainly instead of returning anything. **Drought returns synthetic demo values derived from the county name, not NDMA data**, and is labelled as such in the card and in every answer. Before 2026-10-03 no query could be answered at all: the response wrapper built an invalid message, which no test had ever exercised.
 
 ## Quickstart
 
@@ -72,9 +72,9 @@ curl -X POST http://localhost:8000/ \
 
 | Skill ID | Description | Example query |
 |----------|-------------|---------------|
-| `budget_query` | County budget absorption FY 2022/23 | *"Which counties spent less than 50% of their development budget?"* |
-| `parliament_query` | MP records, bills, CDF utilisation | *"How many bills were enacted in the 13th Parliament?"* |
-| `drought_status` | NDMA drought phase for any county | *"Is Marsabit County in drought emergency?"* |
+| `budget_query` | County budget absorption FY 2022/23 (needs data files not in this repository) | *"Which counties spent less than 50% of their development budget?"* |
+| `parliament_query` | MP records, bills, CDF utilisation (needs data files not in this repository) | *"How many bills were enacted in the 13th Parliament?"* |
+| `drought_status` | **DEMO: synthetic values, not NDMA data** | *"What is the drought status in Turkana County?"* |
 | `rights_query` | Constitution of Kenya 2010, in English and Kiswahili | *"What does the Constitution say about land rights in Kiswahili?"* |
 
 ## A2A + MCP ecosystem

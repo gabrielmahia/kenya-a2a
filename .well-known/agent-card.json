@@ -8,13 +8,13 @@
   "defaultOutputModes": [
     "text/plain"
   ],
-  "description": "East African civic data agent \u2014 query Kenya parliament records, county budget execution, NDMA drought status, and constitutional rights in English and Kiswahili.",
+  "description": "East African civic data agent (demo). Working: constitutional rights lookup in English and Kiswahili (a small set of articles). County budget and parliament queries need data files that are not included in this deployment. Drought status returns synthetic demo values, not NDMA data.",
   "name": "KenyaA2A",
   "preferredTransport": "JSONRPC",
   "protocolVersion": "0.3.0",
   "skills": [
     {
-      "description": "Query Controller of Budget county development fund absorption for all 47 Kenya counties",
+      "description": "Query Controller of Budget county development fund absorption. Needs data files that are not included in this deployment.",
       "id": "budget_query",
       "name": "County Budget Query",
       "tags": [
@@ -25,7 +25,7 @@
       ]
     },
     {
-      "description": "Query MP records, parliamentary bills, and CDF utilisation from Kenya's 13th Parliament",
+      "description": "Query MP records, parliamentary bills and CDF utilisation. Needs data files that are not included in this deployment.",
       "id": "parliament_query",
       "name": "Parliament Records Query",
       "tags": [
@@ -36,9 +36,9 @@
       ]
     },
     {
-      "description": "Get current NDMA drought phase classification for any Kenya county (1=Minimal to 5=Famine)",
+      "description": "DEMO: returns synthetic values derived from the county name, not NDMA data. Do not use for decisions.",
       "id": "drought_status",
-      "name": "NDMA Drought Status",
+      "name": "Drought Status (DEMO, synthetic)",
       "tags": [
         "drought",
         "ndma",
