@@ -75,6 +75,9 @@ The agent describes itself at `/.well-known/agent-card.json` (A2A 1.0). The comp
 }
 ```
 
+## Signed Agent Cards (A2A 1.0)
+A2A 1.0 defines signed Agent Cards: a JSON Web Signature over the canonicalised card (the `signatures` field itself is excluded). **This server does not sign its card.** A signature would prove the card's integrity and that its signer holds the key. It would not prove who the operator is beyond that, that any skill works, or what a caller is allowed to do. Authentication and authorisation remain out of scope (see Status below). Whether a registry can usefully tell a signed card from an unsigned one is a question worth testing rather than assuming.
+
 ## Status
 
 Runs locally on `a2a-sdk>=1.0,<2.0` (A2A protocol 1.0, JSON-RPC). **No public instance is deployed** (an earlier hosted instance no longer exists).
